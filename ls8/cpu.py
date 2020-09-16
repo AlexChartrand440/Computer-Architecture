@@ -1,6 +1,8 @@
 """CPU functionality."""
 
-import sys
+import sys;
+
+# 1 2 4 8 16 32 64 128
 
 class CPU:
     """Main CPU class."""
@@ -8,31 +10,31 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         self.reg = [0] * 8;
-        self.ram = [0] * 8;
+        self.ram = [0] * 255;
         self.running = True;
         self.pc = 0;
 
     def load(self):
         """Load a program into memory."""
 
-        address = 0
+        address = 0;
 
-        # For now, we've just hardcoded a program:
+        if len(sys.argv) < 2:
+            print('No program specified to load!');
+            return;
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8 | 1 2 4 8 16 32 64 128 | 130? 
-            0b00000000, # Register Index
-            0b00001000, # 8
-            0b01000111, # PRN R0 | 71
-            0b00000000, # Register Index
-            0b00000001, # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
-
+        try:
+            print(sys.argv[1]);
+            with open(sys.argv[1]) as f:
+                for line in f:
+                    temp = line.split('#');
+                    trimmed = temp[0].strip();
+                    if len(trimmed) > 0 and len(trimmed) == 8:
+                        # print(int(trimmed, 2));
+                        self.ram[address] = int(trimmed, 2);
+                        address += 1;
+        except:
+            print('Error loading program: ' + sys.argv[1]);
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -40,6 +42,8 @@ class CPU:
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
         #elif op == "SUB": etc
+        elif op == "MULT":
+            self.reg[reg_a] *= self.reg[reg_b];
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -66,14 +70,19 @@ class CPU:
     def run(self):
         """Run the CPU."""  
         while self.running:
-        #     # Do stuff
+
             opcode = self.ram[self.pc];
 
-            if opcode == 130:
+            if opcode == 130: # Save to REG
                 self.reg[self.ram[self.pc + 1]] = self.ram[self.pc + 2];
                 self.pc += 3;
-            elif opcode == 71:
+            elif opcode == 71: # Print REG
                 print(self.reg[self.ram[self.pc + 1]]);
                 self.pc += 2;
-            elif opcode == 1:
+            elif opcode == 162: # Multiply REG's
+                print('REG: ' + str(self.reg[self.ram[self.pc + 1]]));
+                print('REG: ' + str(self.reg[self.ram[self.pc + 2]]));
+                self.alu('MULT', self.ram[self.pc + 1], self.ram[self.pc + 2]);
+                self.pc += 3;
+            elif opcode == 1: # Halt/Stop
                 self.running = False;
