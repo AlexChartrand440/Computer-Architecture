@@ -13,6 +13,10 @@ class CPU:
         self.ram = [0] * 255;
         self.running = True;
         self.pc = 0;
+        self.reg[7] = 0xF4;
+        self.fl = 0;
+        self.fg = 0;
+        self.fe = 0;
 
     def load(self):
         """Load a program into memory."""
@@ -41,11 +45,52 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "SUB":
+            self.reg[reg_a] -= self.reg[reg_b]
         elif op == "MULT":
             self.reg[reg_a] *= self.reg[reg_b];
+        elif op == "DIV":
+            self.reg[reg_a] /= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
+
+    def pop(self):
+        rn = self.ram[self.pc + 1];
+        v = self.ram[self.reg[7]];
+        self.reg[rn] = v;
+        self.reg[7] += 1;
+        self.pc += 2;
+        print('Reg: ' + str(self.reg[7]) + ' | Value: ' + str(self.reg[rn]));
+    
+    def push(self):
+        self.reg[7] -= 1;
+        rn = self.ram[self.pc + 1];
+        v = self.reg[rn];
+        self.ram[self.reg[7]] = v;
+        self.pc += 2;
+        print('Reg: ' + str(self.reg[7]) + ' | Value: ' + str(self.ram[self.reg[7]]));
+
+    def push_value(self, value):
+        self.reg[7] -= 1;
+        self.ram[self.reg[7]] = value;
+
+    def pop_value(self):
+        v = self.ram[self.reg[7]];
+        self.reg[7] += 1;
+        return v;
+
+    def compare(self, regA, regB):
+        if regA < regB:
+            self.fl = 1;
+        elif regA > regB:
+            self.fg = 1;
+        else:
+            self.fe = 1;
+
+    def reset(self):
+        self.fl = 0;
+        self.fg = 0;
+        self.fe = 0;
 
     def trace(self):
         """
@@ -71,7 +116,11 @@ class CPU:
         """Run the CPU."""  
         while self.running:
 
+            # self.trace();
+
             opcode = self.ram[self.pc];
+
+            # print(str(opcode) + ' - ' + str(self.pc));
 
             if opcode == 130: # Save to REG
                 self.reg[self.ram[self.pc + 1]] = self.ram[self.pc + 2];
@@ -84,5 +133,31 @@ class CPU:
                 print('REG: ' + str(self.reg[self.ram[self.pc + 2]]));
                 self.alu('MULT', self.ram[self.pc + 1], self.ram[self.pc + 2]);
                 self.pc += 3;
+            elif opcode == 70: # POP
+                self.pop();
+            elif opcode == 69: # PUSH
+                self.push();
+            elif opcode == 80: # CALL
+                self.push_value(self.pc + 2);
+                self.pc = self.reg[self.ram[self.pc + 1]];
+            elif opcode == 33: # RETURN
+                pass;
+            elif opcode == 167: # COMPARE
+                self.reset();
+                # SET FLAG
+                self.compare(self.reg[self.ram[self.pc + 1]], self.reg[self.ram[self.pc + 2]]);
+                self.pc += 3;
+            elif opcode == 0b01010110: # JNE
+                if self.fe == 0:
+                    self.pc = self.reg[self.ram[self.pc + 1]];
+                else:
+                    self.pc += 2;
+            elif opcode == 0b01010101: # JEQ
+                if self.fe == 1:
+                    self.pc = self.reg[self.ram[self.pc + 1]];
+                else:
+                    self.pc += 2;
+            elif opcode == 0b01010100: # JMP
+                self.pc = self.reg[self.ram[self.pc + 1]];
             elif opcode == 1: # Halt/Stop
                 self.running = False;
